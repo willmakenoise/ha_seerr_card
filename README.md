@@ -6,6 +6,8 @@ A custom Home Assistant Lovelace card for searching movies and TV shows and requ
 [![License][license-shield]](LICENSE)
 [![GitHub Activity][commits-shield]][commits]
 
+![Seerr Request Card searching for a movie, with an already-available result and two requestable results][card-screenshot]
+
 ---
 
 ## Overview
@@ -128,3 +130,4 @@ Publishing a GitHub release (tag `vX.Y.Z`) triggers `.github/workflows/release.y
 [releases]: https://github.com/willmakenoise/ha_seerr_card/releases
 [overseerr-integration]: https://www.home-assistant.io/integrations/overseerr/
 [python-overseerr]: https://github.com/joostlek/python-overseerr
+[card-screenshot]: images/card.png
