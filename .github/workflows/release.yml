@@ -8,6 +8,8 @@ jobs:
   release:
     name: Prepare release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
     steps:
