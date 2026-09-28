@@ -32,7 +32,7 @@
     "DEVCONTAINER": "1",
     "HASS_USERNAME": "dev",
     "HASS_PASSWORD": "dev",
-    "LOVELACE_REMOTE_FILES": "http://localhost:5000/boilerplate-card.js"
+    "LOVELACE_REMOTE_FILES": "http://localhost:5001/seerr-request-card.js"
   },
 
   // Setup Home Assistant and install dependencies

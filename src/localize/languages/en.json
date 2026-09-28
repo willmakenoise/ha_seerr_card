@@ -1,8 +1,26 @@
 {
   "common": {
     "version": "Version",
-    "invalid_configuration": "Invalid configuration",
-    "show_warning": "Show Warning",
-    "show_error": "Show Error"
+    "invalid_configuration": "Invalid configuration"
+  },
+  "editor": {
+    "seerr_instance": "Seerr instance",
+    "name": "Name (optional)"
+  },
+  "card": {
+    "search_placeholder": "Search for a movie or TV show",
+    "no_config_entry": "No Seerr config entry configured. Edit this card and select one.",
+    "search_failed": "Search failed",
+    "no_results": "No results found for \"{query}\"",
+    "movie": "Movie",
+    "tv_show": "TV Show",
+    "status_available": "Available",
+    "status_partially_available": "Partially available",
+    "status_processing": "Processing",
+    "status_pending": "Pending",
+    "request": "Request",
+    "requested": "Requested",
+    "request_success": "Requested \"{title}\"",
+    "request_failure": "Failed to request \"{title}\": {error}"
   }
 }

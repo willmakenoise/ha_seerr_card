@@ -1,5 +1,6 @@
 {
-    "name": "Boilerplate Card",
+    "name": "Seerr Request Card",
     "render_readme": true,
-    "filename": "boilerplate-card.js"
+    "filename": "seerr-request-card.js",
+    "homeassistant": "2026.8.0"
 }

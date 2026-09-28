@@ -1,7 +1,26 @@
 {
   "common": {
     "version": "Versjon",
-    "invalid_configuration": "Ikke gyldig konfiguration",
-    "show_warning": "Vis advarsel"
+    "invalid_configuration": "Ugyldig konfigurasjon"
+  },
+  "editor": {
+    "seerr_instance": "Seerr-instans",
+    "name": "Navn (valgfritt)"
+  },
+  "card": {
+    "search_placeholder": "Søk etter en film eller TV-serie",
+    "no_config_entry": "Ingen Seerr-konfigurasjon valgt. Rediger kortet og velg en.",
+    "search_failed": "Søket feilet",
+    "no_results": "Ingen resultater funnet for «{query}»",
+    "movie": "Film",
+    "tv_show": "TV-serie",
+    "status_available": "Tilgjengelig",
+    "status_partially_available": "Delvis tilgjengelig",
+    "status_processing": "Under behandling",
+    "status_pending": "Venter",
+    "request": "Be om",
+    "requested": "Forespurt",
+    "request_success": "Ba om «{title}»",
+    "request_failure": "Kunne ikke be om «{title}»: {error}"
   }
 }

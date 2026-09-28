@@ -1,6 +1,6 @@
 # Home Assistant Custom Card - Dev Container Setup
 
-This directory contains the development container configuration for building and testing the boilerplate-card custom card for Home Assistant.
+This directory contains the development container configuration for building and testing the Seerr Request Card custom card for Home Assistant.
 
 ## Setup Instructions
 
@@ -16,7 +16,7 @@ This directory contains the development container configuration for building and
 3. **Build the Card**
    ```bash
    yarn build      # Lint and build
-   yarn start      # Start dev server with hot reload (port 5000)
+   yarn start      # Start dev server with hot reload (port 5001)
    yarn lint       # Check code quality
    yarn rollup     # Production build
    ```
@@ -24,7 +24,7 @@ This directory contains the development container configuration for building and
 4. **Access Services**
    - **Dev Container**: Terminal in VS Code (automatic)
    - **Home Assistant**: http://localhost:8123 (user: dev/pass: dev)
-   - **Rollup Dev Server**: http://localhost:5000
+   - **Rollup Dev Server**: http://localhost:5001
 
 5. **Configure Home Assistant to Use Your Card**
    - In Home Assistant, go to Settings > Dashboards
@@ -57,7 +57,7 @@ The image includes the `container` helper used by the devcontainer lifecycle com
 yarn install
 
 # Development with hot reload
-yarn start              # Runs Rollup in watch mode on port 5000
+yarn start              # Runs Rollup in watch mode on port 5001
 
 # Quality checks
 yarn lint             # ESLint check
@@ -83,8 +83,8 @@ ctrl+shift+p → "Remote: Rebuild Container"
 
 ### Port Already in Use
 ```bash
-# Find what's using port 5000 or 8123
-lsof -i :5000
+# Find what's using port 5001 or 8123
+lsof -i :5001
 lsof -i :8123
 ```
 

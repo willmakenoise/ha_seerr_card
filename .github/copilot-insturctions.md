@@ -18,17 +18,16 @@ yarn lint
 
 ### Primary files
 
-- `src/boilerplate-card.ts` — main card implementation
+- `src/seerr-request-card.ts` — main card implementation
 - `src/editor.ts` — visual editor (`LovelaceCardEditor`)
 - `src/types.ts` — card config and type definitions
-- `src/action-handler-directive.ts` — tap/hold/double-tap directive
 - `src/localize/localize.ts` — localization helper
 - `src/localize/languages/en.json` and `src/localize/languages/nb.json` — translation files
 - `rollup.config.js` and `rollup.config.dev.js` — production and dev build config
 
 ## Architecture and patterns
 
-- The custom element is `custom:boilerplate-card`.
+- The custom element is `custom:seerr-request-card`.
 - Prefer Lit 3 patterns and idiomatic web component structure.
 - Keep configuration shape centralized in `src/types.ts`.
 - Keep editor schema and defaults aligned with runtime card behavior.
@@ -52,7 +51,8 @@ yarn lint
 ## Home Assistant integration
 
 - Use Home Assistant helpers and conventions from `custom-card-helpers`.
-- Ensure tap, hold, and double-tap actions are wired through existing action patterns.
+- Prefer `hass.connection.sendMessagePromise` over `hass.callService` when a service returns response data (`custom-card-helpers`' `callService` typing doesn't support it).
+- Prefer `<ha-selector>` over other HA-internal components (e.g. `ha-textfield`) for form inputs — it's reliably loaded wherever the Lovelace editor runs, unlike components that depend on other parts of the frontend having loaded first.
 - Support unavailable/loading/error states gracefully.
 - Keep Lovelace config compatibility in mind when changing schema or defaults.
 
@@ -76,6 +76,7 @@ yarn lint
 - Ensure `yarn build` succeeds after non-trivial changes.
 - Do not introduce unrelated refactors in focused changes.
 - If updating build tooling, keep dev and prod Rollup configs consistent.
+- Do not remove `useDefineForClassFields: false` from `tsconfig.json` — without it, native class fields shadow the getter/setter that Lit's `@property`/`@state` decorators install, silently breaking reactivity after the first render (rebuild the dev server, not just touch a file, after changing `tsconfig.json` — the running `rollup-plugin-esbuild` process caches it).
 
 ## Safe change workflow
 
