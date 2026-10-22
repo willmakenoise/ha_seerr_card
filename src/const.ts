@@ -1,4 +1,4 @@
-export const CARD_VERSION = '0.1.0';
+export const CARD_VERSION = '0.1.1';
 
 // Delay after the last keystroke before firing a search, in milliseconds.
 export const SEARCH_DEBOUNCE_MS = 350;
