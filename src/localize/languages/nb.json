@@ -5,7 +5,17 @@
   },
   "editor": {
     "seerr_instance": "Seerr-instans",
-    "name": "Navn (valgfritt)"
+    "name": "Navn (valgfritt)",
+    "content": "Innhold",
+    "content_layout": "Innholdslayout",
+    "content_layout_list": "Liste",
+    "content_layout_grid": "Rutenett",
+    "show_thumbnails": "Vis miniatyrbilder",
+    "show_overview": "Vis beskrivelse",
+    "thumbnail_size": "Størrelse på miniatyrbilder",
+    "thumbnail_size_small": "Liten (kompakt)",
+    "thumbnail_size_medium": "Middels (plakat)",
+    "thumbnail_size_large": "Stor (plakat)"
   },
   "card": {
     "search_placeholder": "Søk etter en film eller TV-serie",
@@ -14,6 +24,8 @@
     "no_results": "Ingen resultater funnet for «{query}»",
     "movie": "Film",
     "tv_show": "TV-serie",
+    "media_type_movie": "Film",
+    "media_type_tv": "Serie",
     "status_available": "Tilgjengelig",
     "status_partially_available": "Delvis tilgjengelig",
     "status_processing": "Under behandling",

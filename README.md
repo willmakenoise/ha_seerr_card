@@ -15,7 +15,9 @@ A custom Home Assistant Lovelace card for searching movies and TV shows and requ
 Type a title, get a list of matches, tap **Request**. That's it.
 
 - Live search against your Seerr/Overseerr instance as you type
-- Movies and TV shows, with media type and (for TV) first-air year shown
+- Movies and TV shows, with media type and release/first-air year shown
+- Poster thumbnails, lazy-loaded, with a choice of size or off entirely (see `show_thumbnails`/`thumbnail_size`)
+- Results as a List or a Grid — Grid is a horizontally-scrolling poster carousel whose visible item count grows with card width (see `content_layout`)
 - One-tap request, with per-item loading state and a native HA toast on success/failure
 - Items already available, pending, or processing in Seerr are shown as such instead of a clickable button
 - Visual editor with a proper config-entry picker — no need to hand-type IDs
@@ -64,15 +66,16 @@ name: Request Something
 | ----------------- | ------ | ------------ | ----------------------------------------------------------------------------- |
 | `type`            | string | **Required** | `custom:seerr-request-card`                                                 |
 | `config_entry_id` | string | **Required** | The Seerr config entry to search/request against. Pick it via the visual editor, or find it under Developer Tools → Actions → `overseerr.search_media` (switch to YAML mode to see the raw ID). |
-| `name`            | string | Optional     | Card header text. Defaults to "Seerr Request Card".                         |
+| `name`            | string | Optional     | Card header text. No header is shown when unset.                            |
+| `content_layout`  | string  | Optional    | `list` (default, "List" in the editor — single-column list) or `grid` ("Grid" in the editor — a horizontally-scrolling poster carousel; title, year, and the Request button only appear on hover/focus, over a blurred poster). Internal values match built-in cards' "Content Layout" option naming. |
+| `show_thumbnails` | boolean | Optional    | Show poster thumbnails next to results. Defaults to `true`. Requires Home Assistant 2026.12+ (see below) — degrades to icons automatically on older versions, no need to turn this off just because you're on an older release. |
+| `thumbnail_size`  | string  | Optional    | `small` (compact cropped square), `medium` (default, true 2:3 poster aspect ratio, uncropped), or `large`. Only applies to the List layout — Grid tiles always use their own fixed poster size — and only while `show_thumbnails` is on. |
+| `show_overview`   | boolean | Optional    | Show a truncated excerpt of each result's description between its title and the Request button. Defaults to `false`. Not available in the List layout while `thumbnail_size` is `small` — too little a visual anchor for a multi-line description. |
 
 ## Known limitations
 
-These come from the underlying [`python_overseerr`][python-overseerr] client library used by the Seerr integration, not from this card:
-
-- **No poster/thumbnail images.** Search results don't carry a poster path in the current library version, so results show a generic movie/TV icon instead of artwork.
-- **No release year for movies.** TV shows show their first-air year; movies don't currently expose a release date through this library.
-- **Requesting already-available media can fail server-side.** Overseerr's request endpoint returns a different response shape for media it already has, which the client library doesn't parse. This card avoids calling it for items already known to be available/pending/processing by reading their status from the search results — but if you hit a `MissingField` error in your Home Assistant log regardless, that's this upstream issue, not the card.
+- **Thumbnails and movie release years require Home Assistant 2026.12 or newer.** Both come from `poster_path`/`release_date` fields added in [`python_overseerr` 0.10.0][python-overseerr-0.10.0], which HA core only bundles starting with that release. On older versions, results just show a generic movie/TV icon and movies show no year — the same as before, not an error.
+- **Requesting already-available media can fail server-side.** Overseerr's request endpoint returns a different response shape for media it already has, which [the client library doesn't parse][python-overseerr-486]. This card avoids calling it for items already known to be available/pending/processing by reading their status from the search results — but if you hit a `MissingField` error in your Home Assistant log regardless, that's this upstream issue, not the card.
 
 ## Development
 
@@ -130,4 +133,6 @@ Publishing a GitHub release (tag `vX.Y.Z`) triggers `.github/workflows/release.y
 [releases]: https://github.com/willmakenoise/ha_seerr_card/releases
 [overseerr-integration]: https://www.home-assistant.io/integrations/overseerr/
 [python-overseerr]: https://github.com/joostlek/python-overseerr
+[python-overseerr-0.10.0]: https://github.com/joostlek/python-overseerr/pull/487
+[python-overseerr-486]: https://github.com/joostlek/python-overseerr/pull/486
 [card-screenshot]: images/card.png

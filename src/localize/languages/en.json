@@ -5,7 +5,17 @@
   },
   "editor": {
     "seerr_instance": "Seerr instance",
-    "name": "Name (optional)"
+    "name": "Name (optional)",
+    "content": "Content",
+    "content_layout": "Content layout",
+    "content_layout_list": "List",
+    "content_layout_grid": "Grid",
+    "show_thumbnails": "Show thumbnails",
+    "show_overview": "Show overview",
+    "thumbnail_size": "Thumbnail size",
+    "thumbnail_size_small": "Small (compact)",
+    "thumbnail_size_medium": "Medium (poster)",
+    "thumbnail_size_large": "Large (poster)"
   },
   "card": {
     "search_placeholder": "Search for a movie or TV show",
@@ -14,6 +24,8 @@
     "no_results": "No results found for \"{query}\"",
     "movie": "Movie",
     "tv_show": "TV Show",
+    "media_type_movie": "Movie",
+    "media_type_tv": "Series",
     "status_available": "Available",
     "status_partially_available": "Partially available",
     "status_processing": "Processing",

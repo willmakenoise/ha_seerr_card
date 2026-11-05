@@ -1,17 +1,43 @@
-import { LitElement, html, TemplateResult, css, CSSResultGroup } from 'lit';
+import { LitElement, html, TemplateResult, css, CSSResultGroup, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { HomeAssistant, LovelaceCardEditor } from 'custom-card-helpers';
 
 import {
   OverseerrMediaStatus,
   type SeerrRequestCardConfig,
-  type OverseerrMovieResult,
-  type OverseerrTVResult,
+  type SeerrResultItem,
   type OverseerrSearchResponse,
   type LovelaceGridOptions,
 } from './types';
-import { SEARCH_DEBOUNCE_MS } from './const';
+import {
+  SEARCH_DEBOUNCE_MS,
+  TMDB_IMAGE_BASE_URL,
+  THUMBNAIL_SIZES,
+  TILE_POSTER_TMDB_SIZE,
+  PREVIEW_SEARCH_QUERY,
+  getEffectiveThumbnailSize,
+} from './const';
 import { localize } from './localize/localize';
+
+// hui-card rebuilds the card element on every config change while in the
+// edit dialog's preview (even per keystroke in the Name field), so share one
+// demo search per Seerr instance instead of re-searching each rebuild.
+const previewResults = new Map<string, Promise<SeerrResultItem[]>>();
+
+// The "Edit card" dialog renders its own throwaway copy of the card for the
+// live preview. Unlike the `preview` property — which views also set on the
+// real dashboard cards in edit mode — this is never true for a card that's
+// actually on the dashboard.
+function isInEditCardDialog(element: Element): boolean {
+  let node: Node | null = element;
+  while (node) {
+    if (node instanceof Element && node.localName === 'hui-dialog-edit-card') {
+      return true;
+    }
+    node = node.parentNode instanceof ShadowRoot ? node.parentNode.host : node.parentNode;
+  }
+  return false;
+}
 
 window.customCards = window.customCards || [];
 window.customCards.push({
@@ -44,16 +70,45 @@ export class SeerrRequestCard extends LitElement {
   }
 
   public getGridOptions(): LovelaceGridOptions {
+    const minColumns = this._minColumns();
+    const minRows = this._minRows();
     return {
-      rows: 4,
-      min_rows: this.config.name ? 4 : 3,
-      max_rows: 12,
+      columns: minColumns,
+      min_columns: minColumns,
+      rows: minRows,
+      min_rows: minRows,
+      // max_rows: 12,
     };
+  }
+
+  private _minColumns(): number {
+    if (this.config.content_layout === 'grid') {
+      return 4;
+    }
+    return 8;
+  }
+
+  private _minRows(): number {
+    if (this.config.content_layout === 'grid') {
+      // The title header costs almost exactly one row's worth of height, so
+      // this doesn't need its own "no title" case beyond the ?: below.
+      return this.config.name ? 5 : 4;
+    }
+    if (getEffectiveThumbnailSize(this.config) === 'small') {
+      // The small thumb is short enough to fit one row less comfortably.
+      return this.config.name ? 4 : 3;
+    }
+    return this.config.name ? 5 : 4;
   }
 
   // Used for Masonry-view column balancing. One unit ≈ 50px; the search field
   // is about two units tall and each result row about one.
   public getCardSize(): number {
+    if (this.config.content_layout === 'grid') {
+      // Single horizontally-scrolling row of 2:3 poster tiles — height no
+      // longer grows with result count.
+      return 7;
+    }
     return 2 + this._results.length;
   }
 
@@ -61,16 +116,21 @@ export class SeerrRequestCard extends LitElement {
 
   @state() private config!: SeerrRequestCardConfig;
   @state() private _query = '';
-  @state() private _results: (OverseerrMovieResult | OverseerrTVResult)[] = [];
+  @state() private _results: SeerrResultItem[] = [];
   @state() private _loading = false;
   @state() private _error: string | null = null;
   @state() private _requestingId: number | null = null;
   @state() private _requestedIds: Set<number> = new Set();
+  // Posters that failed to load (bad path, CDN hiccup) — fall back to the icon
+  // instead of showing a broken-image glyph.
+  @state() private _failedPosterIds: Set<number> = new Set();
 
   private _searchTimeout?: ReturnType<typeof setTimeout>;
   // Guards against a slower, older search response overwriting the results
   // of a newer one that happened to resolve first.
   private _searchToken = 0;
+  private _inEditCardDialog = false;
+  private _previewSeeded = false;
 
   public setConfig(config: SeerrRequestCardConfig): void {
     if (!config) {
@@ -78,15 +138,56 @@ export class SeerrRequestCard extends LitElement {
     }
 
     this.config = {
-      name: 'Seerr Request Card',
+      show_thumbnails: true,
+      thumbnail_size: 'medium',
+      content_layout: 'list',
       ...config,
     };
+  }
+
+  public connectedCallback(): void {
+    super.connectedCallback();
+    this._inEditCardDialog = isInEditCardDialog(this);
   }
 
   public disconnectedCallback(): void {
     super.disconnectedCallback();
     if (this._searchTimeout) {
       clearTimeout(this._searchTimeout);
+    }
+  }
+
+  protected updated(changedProps: PropertyValues<this>): void {
+    super.updated(changedProps);
+    if (this._inEditCardDialog && !this._previewSeeded && this.hass && this.config.config_entry_id) {
+      this._previewSeeded = true;
+      this._seedPreview();
+    }
+  }
+
+  private async _seedPreview(): Promise<void> {
+    const entryId = this.config.config_entry_id;
+    let pending = previewResults.get(entryId);
+    if (!pending) {
+      pending = this._fetchResults(PREVIEW_SEARCH_QUERY);
+      previewResults.set(entryId, pending);
+      pending.catch(() => previewResults.delete(entryId));
+    }
+
+    const token = ++this._searchToken;
+    this._query = PREVIEW_SEARCH_QUERY;
+    this._loading = true;
+    try {
+      const results = await pending;
+      if (token === this._searchToken) {
+        this._results = results;
+      }
+    } catch {
+      // Leave the preview empty; the search field still works normally.
+    } finally {
+      if (token === this._searchToken) {
+        this._loading = false;
+      }
     }
   }
 
@@ -107,7 +208,7 @@ export class SeerrRequestCard extends LitElement {
         <div class="card-content">
           <ha-input-search
             class="search-field"
-            appearance="outline"
+            appearance="outlined"
             .value=${this._query}
             .placeholder=${localize('card.search_placeholder')}
             @input=${this._onInput}
@@ -121,7 +222,9 @@ export class SeerrRequestCard extends LitElement {
               : ''
           }
 
-          <div class="results">${this._results.map((item) => this._renderResult(item))}</div>
+          <div class="results ${this.config.content_layout === 'grid' ? 'layout-grid' : ''}">
+            ${this._renderResultsList()}
+          </div>
         </div>
       </ha-card>
     `;
@@ -137,9 +240,19 @@ export class SeerrRequestCard extends LitElement {
     `;
   }
 
-  private _renderResult(item: OverseerrMovieResult | OverseerrTVResult): TemplateResult {
-    const title = this._titleOf(item);
-    const meta = this._metaOf(item);
+  private _renderResultsList(): TemplateResult {
+    if (this.config.content_layout !== 'grid') {
+      return html`${this._results.map((item) => this._renderRow(item))}`;
+    }
+    // Each tile has a fixed width and snaps individually, so however many
+    // fit side by side is purely a function of the card's rendered width —
+    // no JS-side pagination/grouping needed.
+    return html`${this._results.map((item) => this._renderTile(item))}`;
+  }
+
+  // Shared between both layouts: title/status/button-label logic is the same
+  // either way, only the markup around it differs.
+  private _resultViewModel(item: SeerrResultItem) {
     const isRequesting = this._requestingId === item.id;
     const isRequested = this._requestedIds.has(item.id);
     // Overseerr's create-request endpoint returns a different (unparseable) response
@@ -156,23 +269,120 @@ export class SeerrRequestCard extends LitElement {
       buttonLabel = existingStatus;
     }
 
+    return {
+      title: this._titleOf(item),
+      meta: this._metaOf(item),
+      year: this._yearOf(item),
+      overview: item.overview,
+      buttonLabel,
+      disabled,
+    };
+  }
+
+  // Single-column list row: thumb + title/meta + button side by side.
+  private _renderRow(item: SeerrResultItem): TemplateResult {
+    const vm = this._resultViewModel(item);
+    // Drives the container box size for every row uniformly (even icon
+    // fallbacks), so the list doesn't get jagged row heights.
+    const effectiveThumbnailSize = getEffectiveThumbnailSize(this.config);
+    const size = THUMBNAIL_SIZES[effectiveThumbnailSize];
+    const posterUrl = this._posterUrl(item, size.tmdbSize);
+    // The small thumb is a cropped icon-replacement, too little a visual
+    // anchor for an adjacent multi-line description — only show it alongside
+    // the bigger, true-poster-shaped sizes.
+    const showOverview = this.config.show_overview && effectiveThumbnailSize !== 'small' && !!vm.overview;
+
     return html`
       <div class="result">
-        <div class="result-thumb">
-          <ha-icon icon=${item.media_type === 'movie' ? 'mdi:movie-open' : 'mdi:television-classic'}></ha-icon>
+        <div class="result-thumb" style=${`width: ${size.width}px; height: ${size.height}px;`}>
+          ${
+            posterUrl
+              ? html`
+                  <img
+                    class="result-poster"
+                    src=${posterUrl}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    width=${size.width}
+                    height=${size.height}
+                    @error=${() => this._onPosterError(item.id)}
+                  />
+                `
+              : html`<ha-icon icon=${this._mediaIcon(item)}></ha-icon>`
+          }
         </div>
         <div class="result-info">
-          <div class="result-title">${title}</div>
-          <div class="result-meta">${meta}</div>
+          <div class="result-title">${vm.title}</div>
+          <div class="result-meta">${vm.meta}</div>
+          ${showOverview ? html`<div class="result-overview">${vm.overview}</div>` : ''}
         </div>
-        <button class="request-button" ?disabled=${disabled} @click=${() => this._requestMedia(item)}>
-          ${buttonLabel}
+        <button class="request-button" ?disabled=${vm.disabled} @click=${() => this._requestMedia(item)}>
+          ${vm.buttonLabel}
         </button>
       </div>
     `;
   }
 
-  private _statusLabel(item: OverseerrMovieResult | OverseerrTVResult): string | null {
+  // Grid tile: poster fills the tile; title/year/button only show on
+  // hover/focus, over a blurred, dimmed copy of the poster — avoids fixed-width
+  // row content (button, thumb) overflowing a narrow grid column.
+  private _renderTile(item: SeerrResultItem): TemplateResult {
+    const vm = this._resultViewModel(item);
+    const posterUrl = this._posterUrl(item, TILE_POSTER_TMDB_SIZE);
+    const showOverview = this.config.show_overview && !!vm.overview;
+
+    return html`
+      <div class="result-tile">
+        ${
+          posterUrl
+            ? html`
+                <img
+                  class="tile-media"
+                  src=${posterUrl}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  @error=${() => this._onPosterError(item.id)}
+                />
+              `
+            : html`
+                <div class="tile-media tile-icon-fallback">
+                  <ha-icon icon=${this._mediaIcon(item)}></ha-icon>
+                </div>
+              `
+        }
+        <div class="tile-badge">${this._mediaTypeLabel(item)}</div>
+        <div class="tile-overlay">
+          ${vm.year ? html`<div class="tile-year">${vm.year}</div>` : ''}
+          <div class="tile-title">${vm.title}</div>
+          ${showOverview ? html`<div class="tile-overview">${vm.overview}</div>` : ''}
+          <button class="tile-request-button" ?disabled=${vm.disabled} @click=${() => this._requestMedia(item)}>
+            ${vm.buttonLabel}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  // Null whenever a poster shouldn't be shown: thumbnails disabled, no
+  // poster_path from Overseerr (older python_overseerr, or TMDB has none for
+  // this title), or a previous load of this exact poster already failed.
+  private _posterUrl(item: SeerrResultItem, tmdbSize: string): string | null {
+    if (this.config.show_thumbnails === false) {
+      return null;
+    }
+    if (!item.poster_path || this._failedPosterIds.has(item.id)) {
+      return null;
+    }
+    return `${TMDB_IMAGE_BASE_URL}${tmdbSize}${item.poster_path}`;
+  }
+
+  private _onPosterError(id: number): void {
+    this._failedPosterIds = new Set(this._failedPosterIds).add(id);
+  }
+
+  private _statusLabel(item: SeerrResultItem): string | null {
     switch (item.media_info?.status) {
       case OverseerrMediaStatus.AVAILABLE:
         return localize('card.status_available');
@@ -187,17 +397,27 @@ export class SeerrRequestCard extends LitElement {
     }
   }
 
-  private _titleOf(item: OverseerrMovieResult | OverseerrTVResult): string {
-    return item.media_type === 'movie' ? item.title : item.name;
+  private _titleOf(item: SeerrResultItem): string {
+    return item.media_type === 'movie' ? item.original_title || item.title : item.original_name || item.name;
   }
 
-  private _metaOf(item: OverseerrMovieResult | OverseerrTVResult): string {
-    if (item.media_type === 'movie') {
-      return localize('card.movie');
-    }
-    const year = item.first_air_date?.slice(0, 4);
-    const tvShow = localize('card.tv_show');
-    return year ? `${tvShow} · ${year}` : tvShow;
+  private _mediaTypeLabel(item: SeerrResultItem): string {
+    return item.media_type === 'movie' ? localize('card.media_type_movie') : localize('card.media_type_tv');
+  }
+
+  private _mediaIcon(item: SeerrResultItem): string {
+    return item.media_type === 'movie' ? 'mdi:movie-open' : 'mdi:television-classic';
+  }
+
+  private _metaOf(item: SeerrResultItem): string {
+    const year = this._yearOf(item);
+    const label = item.media_type === 'movie' ? localize('card.movie') : localize('card.tv_show');
+    return year ? `${label} · ${year}` : label;
+  }
+
+  private _yearOf(item: SeerrResultItem): string | null {
+    const date = item.media_type === 'movie' ? item.release_date : item.first_air_date;
+    return date?.slice(0, 4) || null;
   }
 
   private _onInput(ev: Event): void {
@@ -225,26 +445,12 @@ export class SeerrRequestCard extends LitElement {
     this._error = null;
 
     try {
-      const { response } = await this.hass.connection.sendMessagePromise<OverseerrSearchResponse>({
-        type: 'call_service',
-        domain: 'overseerr',
-        service: 'search_media',
-        service_data: {
-          config_entry_id: this.config.config_entry_id,
-          query,
-        },
-        return_response: true,
-      });
-
+      const results = await this._fetchResults(query);
       if (token !== this._searchToken) {
         // A newer search has since started; discard this stale response.
         return;
       }
-
-      this._results = response.results.filter(
-        (result): result is OverseerrMovieResult | OverseerrTVResult =>
-          result.media_type === 'movie' || result.media_type === 'tv',
-      );
+      this._results = results;
     } catch (err) {
       if (token !== this._searchToken) {
         return;
@@ -258,7 +464,23 @@ export class SeerrRequestCard extends LitElement {
     }
   }
 
-  private async _requestMedia(item: OverseerrMovieResult | OverseerrTVResult): Promise<void> {
+  private async _fetchResults(query: string): Promise<SeerrResultItem[]> {
+    const { response } = await this.hass.connection.sendMessagePromise<OverseerrSearchResponse>({
+      type: 'call_service',
+      domain: 'overseerr',
+      service: 'search_media',
+      service_data: {
+        config_entry_id: this.config.config_entry_id,
+        query,
+      },
+      return_response: true,
+    });
+    return response.results.filter(
+      (result): result is SeerrResultItem => result.media_type === 'movie' || result.media_type === 'tv',
+    );
+  }
+
+  private async _requestMedia(item: SeerrResultItem): Promise<void> {
     this._requestingId = item.id;
 
     try {
@@ -356,6 +578,179 @@ export class SeerrRequestCard extends LitElement {
         gap: 8px;
       }
 
+      .results.layout-grid {
+        /* flex-grow still fills whatever height the card is given (fixed
+           row counts, Masonry's getCardSize()), but min-height provides a
+           floor for "Auto height", which imposes no ancestor height at
+           all — without it, flex-basis: auto has nothing non-circular to
+           resolve against and collapses to 0. */
+        flex: 1 1 auto;
+        min-height: 162px;
+        display: flex;
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x mandatory;
+        /* Lets .tile-overview below query this container's own resolved
+           height to decide how many overview lines fit comfortably. */
+        container-type: size;
+        container-name: grid-results;
+      }
+
+      .result-tile {
+        position: relative;
+        /* Height, not width, is the fixed dimension: height: 100% (an
+           explicit percentage, not implicit flex-stretch) fills the
+           results area's own height, and aspect-ratio derives the width
+           from that — so how many tiles fit side by side grows with card
+           width without distorting the poster shape. Deliberately explicit
+           rather than relying on stretch to provide the cross size: WebKit
+           (notably iOS Safari / the HA iOS app) doesn't reliably derive a
+           flex item's main size from aspect-ratio + implicit stretch, and
+           resolves it to a 0-width tile — i.e. nothing renders at all. */
+        flex: 0 0 auto;
+        height: 100%;
+        aspect-ratio: 2 / 3;
+        scroll-snap-align: start;
+        border-radius: 8px;
+        overflow: hidden;
+        background: var(--secondary-background-color);
+      }
+
+      .tile-media {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: filter 0.2s ease-in-out;
+      }
+
+      .tile-icon-fallback {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--card-background-color);
+        color: var(--secondary-text-color);
+        --mdc-icon-size: 48px;
+      }
+
+      .result-tile:hover .tile-media,
+      .result-tile:focus-within .tile-media {
+        filter: blur(3px) brightness(0.45);
+      }
+
+      /* Styled to match ha-label's "dense" look (border/radius/colors/type
+         scale) rather than using the real element — ha-label is only ever
+         registered from Settings panels, not Lovelace, so it isn't
+         reliably defined here. */
+      .tile-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 1;
+        display: inline-flex;
+        align-items: center;
+        height: 20px;
+        padding: 0 12px;
+        box-sizing: border-box;
+        border: 1px solid var(--outline-color);
+        border-radius: var(--ha-border-radius-md);
+        background-color: rgba(var(--rgb-primary-text-color), 0.15);
+        color: var(--primary-text-color);
+        font-size: var(--ha-font-size-s);
+        font-weight: var(--ha-font-weight-medium);
+        line-height: var(--ha-line-height-condensed);
+        letter-spacing: 0.1px;
+        text-wrap: nowrap;
+      }
+
+      .tile-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: 4px;
+        padding: 8px;
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.5) 55%, rgba(0, 0, 0, 0) 100%);
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+        pointer-events: none;
+      }
+
+      .result-tile:hover .tile-overlay,
+      .result-tile:focus-within .tile-overlay {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .tile-year {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.8);
+      }
+
+      .tile-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: #fff;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .tile-overview {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.8);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      /* Sections view adds --ha-section-grid-row-height (56px, default) +
+        --ha-section-grid-row-gap (8px, default) of card height per extra
+        row — 64px — which flows straight through to this container's own
+        height, so each tier below is exactly one row (64px) past the last,
+        relative to the 162px floor above. */
+      @container grid-results (min-height: 226px) {
+        .tile-overview {
+          -webkit-line-clamp: 3;
+        }
+      }
+
+      @container grid-results (min-height: 290px) {
+        .tile-overview {
+          -webkit-line-clamp: 4;
+        }
+      }
+
+      @container grid-results (min-height: 354px) {
+        .tile-overview {
+          -webkit-line-clamp: 5;
+        }
+      }
+
+      .tile-request-button {
+        margin-top: 4px;
+        width: 100%;
+        padding: 6px 0;
+        border: none;
+        border-radius: 16px;
+        background: var(--primary-color);
+        color: var(--text-primary-color);
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+
+      .tile-request-button:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+
       .result {
         display: flex;
         align-items: center;
@@ -375,6 +770,13 @@ export class SeerrRequestCard extends LitElement {
         border-radius: 6px;
         background: var(--card-background-color);
         color: var(--secondary-text-color);
+        overflow: hidden;
+      }
+
+      .result-poster {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
       }
 
       .result-info {
@@ -393,6 +795,16 @@ export class SeerrRequestCard extends LitElement {
       .result-meta {
         font-size: 12px;
         color: var(--secondary-text-color);
+      }
+
+      .result-overview {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        margin-top: 2px;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
       }
 
       .request-button {
