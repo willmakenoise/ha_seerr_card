@@ -73,11 +73,9 @@ export class SeerrRequestCard extends LitElement {
     const minColumns = this._minColumns();
     const minRows = this._minRows();
     return {
-      columns: minColumns,
       min_columns: minColumns,
       rows: minRows,
       min_rows: minRows,
-      // max_rows: 12,
     };
   }
 
