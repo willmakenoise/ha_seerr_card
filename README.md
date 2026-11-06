@@ -6,7 +6,10 @@ A custom Home Assistant Lovelace card for searching movies and TV shows and requ
 [![License][license-shield]](LICENSE)
 [![GitHub Activity][commits-shield]][commits]
 
-![Seerr Request Card searching for a movie, with an already-available result and two requestable results][card-screenshot]
+<p align="center"><img src="images/card.png" height="400" alt="Seerr Request Card searching for a movie, with an already-available result and two requestable results"></p>
+
+<p align="center"><img src="images/card_grid.png" width="700" alt="Seerr Request Card searching for a movie, hovering over the first result for more info and button"></p>
+
 
 ---
 
@@ -26,7 +29,7 @@ Type a title, get a list of matches, tap **Request**. That's it.
 
 This card is a frontend companion to the **Seerr** integration built into Home Assistant core — it does not talk to Seerr/Overseerr directly. Set up and configure that integration first: **Settings → Devices & Services → Add Integration → Seerr**. See the [integration docs][overseerr-integration] if you haven't done this yet.
 
-Requires **Home Assistant 2026.8 or newer** — that's when the integration's `search_media` and `request_media` actions (which this card is built entirely on) were added. On older versions the integration exists but this card won't work.
+Requires **Home Assistant 2026.11 or newer** — that's when the integration's `search_media` and `request_media` actions (which this card is built entirely on) were added. On older versions the integration exists but this card won't work.
 
 ## Installation
 
@@ -74,8 +77,12 @@ name: Request Something
 
 ## Known limitations
 
-- **Thumbnails and movie release years require Home Assistant 2026.12 or newer.** Both come from `poster_path`/`release_date` fields added in [`python_overseerr` 0.10.0][python-overseerr-0.10.0], which HA core only bundles starting with that release. On older versions, results just show a generic movie/TV icon and movies show no year — the same as before, not an error.
+- **Thumbnails and movie release years require Home Assistant 2026.11.1 or newer.** Both come from `poster_path`/`release_date` fields added in [`python_overseerr` 0.10.0][python-overseerr-0.10.0], which HA core only bundles starting with that release. On older versions, results just show a generic movie/TV icon and movies show no year — the same as before, not an error.
 - **Requesting already-available media can fail server-side.** Overseerr's request endpoint returns a different response shape for media it already has, which [the client library doesn't parse][python-overseerr-486]. This card avoids calling it for items already known to be available/pending/processing by reading their status from the search results — but if you hit a `MissingField` error in your Home Assistant log regardless, that's this upstream issue, not the card.
+
+## Roadmap
+- **Request specific TV-show seasons**. Currently the card will not let you request shows that are partially available in Seerr. Seerr needs to know exactly which seasons you want. Work in progress
+- **Want something more?** Create an issue on Github, and I'll look into it.
 
 ## Development
 
@@ -136,3 +143,4 @@ Publishing a GitHub release (tag `vX.Y.Z`) triggers `.github/workflows/release.y
 [python-overseerr-0.10.0]: https://github.com/joostlek/python-overseerr/pull/487
 [python-overseerr-486]: https://github.com/joostlek/python-overseerr/pull/486
 [card-screenshot]: images/card.png
+[card-grid-screenshot]: images/card_grid.png
