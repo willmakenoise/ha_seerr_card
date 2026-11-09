@@ -33,13 +33,20 @@ Requires **Home Assistant 2026.11 or newer** — that's when the integration's `
 
 ## Installation
 
-### HACS
+### Marketplace (recommended)
 
-This isn't in the default HACS store. Add it as a custom repository:
+[![Open your Home Assistant instance and open a repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=willmakenoise&repository=ha_seerr_card&category=plugin)
 
-1. HACS → **⋮** (top right) → **Custom repositories**.
-2. Repository: `https://github.com/willmakenoise/ha_seerr_card`, category **Dashboard**.
-3. Install **Seerr Request Card**, then add the Lovelace resource HACS prompts you for (it does this automatically).
+1. Settings → Marketplace.
+2. Search for and install **Seerr Request Card**.
+
+### Custom repository fallback
+
+If you can't find it in Marketplace, add it as a custom repository:
+
+1. Marketplace → **Add from link** (top right).
+2. GitHub link: `https://github.com/willmakenoise/ha_seerr_card`.
+3. Click install.
 
 ### Manual
 
