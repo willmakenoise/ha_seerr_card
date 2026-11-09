@@ -19,17 +19,23 @@ Type a title, get a list of matches, tap **Request**. That's it.
 
 - Live search against your Seerr/Overseerr instance as you type
 - Movies and TV shows, with media type and release/first-air year shown
-- Poster thumbnails, lazy-loaded, with a choice of size or off entirely (see `show_thumbnails`/`thumbnail_size`)
+- Poster thumbnails, with a choice of size or off entirely (see `show_thumbnails`/`thumbnail_size`)
 - Results as a List or a Grid — Grid is a horizontally-scrolling poster carousel whose visible item count grows with card width (see `content_layout`)
-- One-tap request, with per-item loading state and a native HA toast on success/failure
+- One-tap request
 - Items already available, pending, or processing in Seerr are shown as such instead of a clickable button
 - Visual editor with a proper config-entry picker — no need to hand-type IDs
 
 ## Requirements
 
-This card is a frontend companion to the **Seerr** integration built into Home Assistant core — it does not talk to Seerr/Overseerr directly. Set up and configure that integration first: **Settings → Devices & Services → Add Integration → Seerr**. See the [integration docs][overseerr-integration] if you haven't done this yet.
+This card is a frontend companion to the **Seerr** integration built into Home Assistant core — it does not talk to Seerr/Overseerr directly. Set up and configure that integration first, click the link below or set it up manually:
 
-Requires **Home Assistant 2026.11 or newer** — that's when the integration's `search_media` and `request_media` actions (which this card is built entirely on) were added. On older versions the integration exists but this card won't work.
+[![Open your Home Assistant instance and show an integration.](https://my.home-assistant.io/badges/integration.svg)](https://my.home-assistant.io/redirect/integration/?domain=overseerr)
+
+**Settings → Devices & Services → Add Integration → Seerr**. See the [integration docs][overseerr-integration] if you haven't done this yet.
+
+Requires **Home Assistant 2026.8 or newer** — that's when the integration's `search_media` and `request_media` actions (which this card is built entirely on) were added. On older versions the integration exists but this card won't work.
+
+For thumbnail to work, you need **Home Assistant 2026.11.1 or newer**.
 
 ## Installation
 
@@ -77,17 +83,17 @@ name: Request Something
 | `type`            | string | **Required** | `custom:seerr-request-card`                                                 |
 | `config_entry_id` | string | **Required** | The Seerr config entry to search/request against. Pick it via the visual editor, or find it under Developer Tools → Actions → `overseerr.search_media` (switch to YAML mode to see the raw ID). |
 | `name`            | string | Optional     | Card header text. No header is shown when unset.                            |
-| `content_layout`  | string  | Optional    | `list` (default, "List" in the editor — single-column list) or `grid` ("Grid" in the editor — a horizontally-scrolling poster carousel; title, year, and the Request button only appear on hover/focus, over a blurred poster). Internal values match built-in cards' "Content Layout" option naming. |
-| `show_thumbnails` | boolean | Optional    | Show poster thumbnails next to results. Defaults to `true`. Requires Home Assistant 2026.12+ (see below) — degrades to icons automatically on older versions, no need to turn this off just because you're on an older release. |
+| `content_layout`  | string  | Optional    | `list` (default, "List" in the editor — single-column list) or `grid` ("Grid" in the editor — a horizontally-scrolling poster carousel; title, year, and the Request button only appear on hover/focus).|
+| `show_thumbnails` | boolean | Optional    | Show poster thumbnails next to results. Defaults to `true`. Requires Home Assistant 2026.11.1+ — degrades to icons automatically on older versions, no need to turn this off just because you're on an older release. |
 | `thumbnail_size`  | string  | Optional    | `small` (compact cropped square), `medium` (default, true 2:3 poster aspect ratio, uncropped), or `large`. Only applies to the List layout — Grid tiles always use their own fixed poster size — and only while `show_thumbnails` is on. |
-| `show_overview`   | boolean | Optional    | Show a truncated excerpt of each result's description between its title and the Request button. Defaults to `false`. Not available in the List layout while `thumbnail_size` is `small` — too little a visual anchor for a multi-line description. |
+| `show_overview`   | boolean | Optional    | Show a truncated excerpt of each result's description. Defaults to `false`. Not available in the List layout while `thumbnail_size` is `small`. |
 
 ## Known limitations
 
 - **Thumbnails and movie release years require Home Assistant 2026.11.1 or newer.** Both come from `poster_path`/`release_date` fields added in [`python_overseerr` 0.10.0][python-overseerr-0.10.0], which HA core only bundles starting with that release. On older versions, results just show a generic movie/TV icon and movies show no year — the same as before, not an error.
-- **Requesting already-available media can fail server-side.** Overseerr's request endpoint returns a different response shape for media it already has, which [the client library doesn't parse][python-overseerr-486]. This card avoids calling it for items already known to be available/pending/processing by reading their status from the search results — but if you hit a `MissingField` error in your Home Assistant log regardless, that's this upstream issue, not the card.
 
 ## Roadmap
+
 - **Request specific TV-show seasons**. Currently the card will not let you request shows that are partially available in Seerr. Seerr needs to know exactly which seasons you want. Work in progress
 - **Want something more?** Create an issue on Github, and I'll look into it.
 
