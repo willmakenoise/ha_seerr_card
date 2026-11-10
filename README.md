@@ -35,7 +35,7 @@ This card is a frontend companion to the **Seerr** integration built into Home A
 
 Requires **Home Assistant 2026.8 or newer** — that's when the integration's `search_media` and `request_media` actions (which this card is built entirely on) were added. On older versions the integration exists but this card won't work.
 
-For thumbnail to work, you need **Home Assistant 2026.11.1 or newer**.
+For thumbnail to work, you need **Home Assistant 2026.11.2 or newer**.
 
 ## Installation
 
@@ -90,7 +90,7 @@ name: Request Something
 
 ## Known limitations
 
-- **Thumbnails and movie release years require Home Assistant 2026.11.1 or newer.** Both come from `poster_path`/`release_date` fields added in [`python_overseerr` 0.10.0][python-overseerr-0.10.0], which HA core only bundles starting with that release. On older versions, results just show a generic movie/TV icon and movies show no year — the same as before, not an error.
+- **Thumbnails and movie release years require Home Assistant 2026.11.2 or newer.** Both come from `poster_path`/`release_date` fields added in [`python_overseerr` 0.10.0][python-overseerr-0.10.0], which HA core only bundles starting with that release. On older versions, results just show a generic movie/TV icon and movies show no year — the same as before, not an error.
 
 ## Roadmap
 
